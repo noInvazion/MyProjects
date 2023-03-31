@@ -1,0 +1,574 @@
+import requests, re
+import time
+import sqlite3
+from pprint import pprint
+from random import randint
+from string import printable
+import  pandas
+
+def emailcheck(email):
+    regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    if re.fullmatch(regex, email):
+        return ["valid email"]
+    else:
+        return ["invalid email"]
+
+url = 'https://api.coingecko.com/api/v3/exchange_rates'
+response = requests.get(url)
+print(f'Response statuscode: {response.status_code}')
+convertedResponse = response.json()
+bitcoin = (convertedResponse['rates']['btc'])
+ether = (convertedResponse['rates']['eth'])
+euro = (convertedResponse['rates']['eur'])
+usd = (convertedResponse['rates']['usd'])
+# print(list(bitcoin.values()))
+print('Welcome to Bee\'s Crypto Trading' + '\n')
+time.sleep(2)
+# print(f'Value of {bitcoin["name"]} is {bitcoin["value"]}')
+pprint(f'1{bitcoin["unit"]} is equivalent to {ether["unit"]}{ether["value"]}')
+pprint(f'1{bitcoin["unit"]} is equivalent to {euro["unit"]}{euro["value"]}')
+pprint(f'1{bitcoin["unit"]} is equivalent to {usd["unit"]}{usd["value"]}')
+
+existingNames = []
+phoneNumbers = ['080', '081', '090', '091', '070']
+letters = printable[10:62]
+numbers = printable[0:10]
+gmailExt = '@gmail.com'
+timeAllowed = [15, 30, 60, 120]
+while True:
+    print('Choose one of the following:')
+    print('1 -- to create a new account  \n2 -- Login')
+    try:
+        option = int(input('Enter what option you\'d like to select: '))
+    except ValueError:
+        print('Unexpected Value')
+        continue
+    if option == 1:  # create error handling for inserting multiple spaces as options
+        try:
+            name = input('What name should we call you: ').strip().title()
+            if len(name.strip()) <= 0:
+                print('Name field should not be blank!')
+                continue
+            elif name[::].isdigit():
+                print('Incorrect entry')
+                continue
+            elif len(name) < 2:
+                print('Name field should be more than 2 characters.')
+                continue
+            elif name in existingNames:
+                print('Name has been taken.. Try something else.')
+            email = input('Please enter your email: ').strip()
+            validation = emailcheck(email)
+            if validation == ['invalid email']:
+                print('You have an entered an invalid email!')
+                continue
+            else:
+                print('Valid email!')
+            phone = input('Please enter your phone number: ')
+            if phone[0:4] in phoneNumbers[::]:
+                print('Enter a valid number')
+                continue
+            elif len(phone) != 11:
+                print('Enter a valid phone number!')
+                continue
+            wallet = int(input('Deposit not less than $200: '))  # after creation...
+            if wallet < 200:
+                print('Deposit more than $200.')
+            password = input('Enter strong password: ')
+            if len(password) < 5:
+                print('Password should be more than 5 characters.')
+        except ValueError as error:
+            print('Unexpected Value')
+        except TypeError:
+            print('Incorrect datatype!')
+        else:
+            existingNames.append(name)
+            account_conn = sqlite3.connect('Registered Users.db')
+            account_cur = account_conn.cursor()
+            account_cur.execute('INSERT INTO Registered_Traders VALUES (?,?,?,?,?)', (name, email, phone,  wallet, password))
+            account_conn.commit()
+            account_conn.close()
+            print(f'Your account has been created, {name}')
+            registered = open(f'{name}.txt', 'a')
+            print(f'{name}', file=registered)
+            print(f'{email}', file=registered)
+            print(f'{wallet}', file=registered)
+            print(f'{password}', file=registered)
+            registered.close()
+    elif option == 2:
+        try:
+            name = input('Enter registered first name: ').title().strip()
+            if name not in existingNames:
+                print('No record with this name. Try again.')
+                break
+            email = input('Enter registered email: ')
+            password = input('Enter strong password: ')  # try to enter a password with space
+        except ValueError:
+            print('Unexpected Input! Try again')
+        reg = [user.strip() for user in open(f'{name}.txt')]
+        if reg[0] == name and reg[1] == email and reg[-1] == password:
+            time.sleep(1)
+            print('You are now logged in.')
+            while True:
+                print('Choose one of the following:')
+                print('1 -- view wallet balance  \n'
+                '2 -- trade \n'
+                '3 -- log out')
+                try:
+                    option = int(input('Choose an option: '))
+                except ValueError:
+                    print('Invalid Input!')
+                    continue
+                if option == 1:
+                    account_conn = sqlite3.connect('Registered Users.db')
+                    account_cur = account_conn.cursor()
+                    select_query = f'SELECT WalletBalance FROM Registered_Traders WHERE Name = "{name}" '
+                    account_cur.execute(select_query)
+                    wallet = account_cur.fetchone()
+                    wallet = wallet[0]
+                    print(f'This is your wallet balance: {wallet}')
+                    print('Would you like to deposit or withdraw? ')
+                    try:
+                        option = input('Deposit/ Withdraw/ None: ').title()
+                    except ValueError:
+                        print('Unexpected input!')
+                        continue
+                    if option == 'Deposit':
+                        deposit = float(input(f"How much would you like to deposit, {name}: "))
+                        deposit += wallet
+                        account_conn = sqlite3.connect('Registered Users.db')
+                        account_cur = account_conn.cursor()
+                        select_query = f'SELECT WalletBalance FROM Registered_Traders WHERE Name = "{name}"'
+                        account_cur.execute(select_query)
+                        wallet = account_cur.fetchone()
+                        wallet = wallet[0]
+                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                    SET WalletBalance = {deposit} WHERE Name = "{name}"''')
+                        account_conn.commit()
+                        account_conn.close()
+                        print(f'Your wallet balance is now ${deposit}')
+                        wallet = deposit
+                    elif option == 'Withdraw':
+                        withdraw = float(input(f"How much would you like to withdraw, {name}: "))
+                        if (wallet - withdraw) < 200:
+                            print('Can\'t withdraw this amount!')
+                        else:
+                            withdraw = wallet - withdraw
+                            account_conn = sqlite3.connect('Registered Users.db')
+                            account_cur = account_conn.cursor()
+                            select_query = f'SELECT * FROM Registered_Traders WHERE Name = "{name}"'
+                            account_cur.execute(select_query)
+                            wallet = account_cur.fetchone()
+                            wallet = wallet[0]
+                            account_cur.execute(f'''UPDATE Registered_Traders 
+                                                    SET WalletBalance = {withdraw} WHERE NAME = "{name}"''')
+                            account_conn.commit()
+                            account_conn.close()
+                            print(f'Your wallet balance is now ${withdraw}')
+                        wallet = withdraw
+                    elif option == 'None':
+                        break
+                    else:
+                        print('Wrong input!')
+                elif option == 2:
+                    print('Choose the crypto pairs you want to trade: 1 -- BTC/USD \n'
+                          '2 -- BTC/ETH\n'
+                          '3 -- BTC/EUR')
+                    percentageUSD = 80
+                    percentageETH = 65
+                    percentageEUR = 71
+                    try:
+                        option = eval(input('Select option: '))
+                    except:
+                        print('Invalid Input!')
+                        continue
+                    if option == 1:
+                        try:
+                            prediction = input('Would it Rise or Fall (choose Rise or Fall): ').strip().title()
+                            duration = int(input(f'Specify the time it would {prediction.lower()}: '))
+                            stake = int(input('How much are you staking: ').strip())
+                        except ValueError:
+                            print('Invalid Input!')
+                        except TypeError:
+                            print('Invalid datatype!')
+                        except NameError:
+                            print('Try again!')
+                        except:
+                            print('try again')
+                            continue
+                        if len(str(duration)) == 0:
+                            break
+
+                        elif duration not in timeAllowed:
+                            print('Enter valid time; 15,30,60,120seconds...')
+                        else:
+                            url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                            response = requests.get(url)
+                            convertedResponse = response.json()
+                            bitcoin = (convertedResponse['rates']['btc'])
+                            ether = (convertedResponse['rates']['eth'])
+                            euro = (convertedResponse['rates']['eur'])
+                            usd = (convertedResponse['rates']['usd'])
+                            #   retrieving wallet from db
+                            account_conn = sqlite3.connect('Registered Users.db')
+                            account_cur = account_conn.cursor()
+                            select_query = f'SELECT WalletBalance FROM Registered_Traders WHERE Name = "{name}"'
+                            account_cur.execute(select_query)
+                            wallet = account_cur.fetchone()
+                            wallet = wallet[0]
+                            if prediction == 'Rise':
+                                if wallet > stake or wallet > 200:
+                                    currentValue = []
+                                    currentValue.append(list(usd.values())[2])
+                                    print(f'The live price of USD is {str(currentValue)}')
+                                    print('Loading...')
+                                    time.sleep(duration)
+                                    url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                                    response = requests.get(url)
+                                    convertedResponse = response.json()
+                                    bitcoin = (convertedResponse['rates']['btc'])
+                                    ether = (convertedResponse['rates']['eth'])
+                                    euro = (convertedResponse['rates']['eur'])
+                                    usd = (convertedResponse['rates']['usd'])
+                                    futureValue = []
+                                    futureValue.append(list(usd.values())[2])
+                                    print(f'The value of USD is {str(futureValue)}')
+                                    if futureValue[0] > currentValue[0]:
+                                        moneyWon = (percentageUSD / 100) * stake
+                                        currentBalance = float(wallet) + moneyWon
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name = "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 500)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/USD',
+                                                         '$' + str(stake), 'WON'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You have won the trade. Your current balance is now {currentBalance}')
+                                    elif futureValue[0] <= currentValue[0]:
+                                        moneyWon = (percentageUSD / 100) * stake
+                                        currentBalance = float(wallet) - float(moneyWon)
+                                        account_conn = sqlite3.connect('Registered Users.db')
+                                        account_cur = account_conn.cursor()
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                             SET WalletBalance = {currentBalance} WHERE Name = "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 500)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/USD',
+                                                         '$' + str(stake), 'LOST'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You lost the trade. Your current balance is now {currentBalance}')
+                                    else:
+                                        print('This is impossible!')
+                                else:
+                                    print('''Insufficient wallet balance! In order to stake, have wallet balance
+         greater than stake amount''')
+                    elif option == 2:
+                        try:
+                            prediction = input('Would you it Rise or Fall (choose Rise or Fall): ').title()
+                            duration = int(input(f'Specify the time it would {prediction.lower()}: '))
+                            stake = int(input('How much are you staking: '))
+                        except ValueError:
+                            print('Invalid Input!')
+                            continue
+                        except TypeError:
+                            print('Invalid datatype!')
+                            continue
+                        if duration not in timeAllowed:
+                            print('Enter valid time; 15,30,60,120seconds...')
+                        else:
+                            url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                            response = requests.get(url)
+                            convertedResponse = response.json()
+                            bitcoin = (convertedResponse['rates']['btc'])
+                            ether = (convertedResponse['rates']['eth'])
+                            euro = (convertedResponse['rates']['eur'])
+                            usd = (convertedResponse['rates']['usd'])
+                            #   retrieving wallet from db
+                            account_conn = sqlite3.connect('Registered Users.db')
+                            account_cur = account_conn.cursor()
+                            select_query = 'SELECT * FROM Registered_Traders'
+                            account_cur.execute(select_query)
+                            wallet = account_cur.fetchone()
+                            wallet = wallet[0]
+                            if prediction == 'Rise':
+                                if wallet > stake or wallet > 200:
+                                    currentValue = []
+                                    currentValue.append(list(ether.values())[2])
+                                    print(f'The live price of ETH is {str(currentValue)}')
+                                    print('Loading...')
+                                    time.sleep(duration)
+                                    url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                                    response = requests.get(url)
+                                    convertedResponse = response.json()
+                                    bitcoin = (convertedResponse['rates']['btc'])
+                                    ether = (convertedResponse['rates']['eth'])
+                                    euro = (convertedResponse['rates']['eur'])
+                                    usd = (convertedResponse['rates']['usd'])
+                                    futureValue = []
+                                    futureValue.append(list(ether.values())[2])
+                                    print(f'The value of ETH is {str(futureValue)}')
+                                    if futureValue[0] > currentValue[0]:
+                                        moneyWon = (percentageETH / 100) * stake
+                                        currentBalance = float(wallet) + moneyWon
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name = "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 1000)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                            (id, name, 'BTC/ETH',
+                                                             'Ξ' + str(stake), 'WON'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You have won the trade. Your current balance is now {currentBalance}')
+                                    elif futureValue[0] <= currentValue[0]:
+                                        moneyWon = (percentageETH / 100) * stake
+                                        currentBalance = float(wallet) - float(moneyWon)
+                                        account_conn = sqlite3.connect('Registered Users.db')
+                                        account_cur = account_conn.cursor()
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name = "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 1000)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                            (id, name, 'BTC/ETH',
+                                                             'Ξ' + str(stake), 'LOST'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You lost the trade. Your current balance is now {currentBalance}')
+                                    else:
+                                        print('This is impossible!')
+                                else:
+                                    print('Insufficient wallet balance! In order to stake, have wallet balance'
+                                            'greater than stake amount')
+                            elif prediction == 'Fall':
+                                if wallet > stake and wallet > 200:
+                                    currentValue = []
+                                    currentValue.append(list(ether.values())[2])
+                                    print(f'The live price of ETH is {str(currentValue)}')
+                                    print('Loading...')
+                                    time.sleep(duration)
+                                    url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                                    response = requests.get(url)
+                                    convertedResponse = response.json()
+                                    bitcoin = (convertedResponse['rates']['btc'])
+                                    ether = (convertedResponse['rates']['eth'])
+                                    euro = (convertedResponse['rates']['eur'])
+                                    usd = (convertedResponse['rates']['usd'])
+                                    futureValue = []
+                                    futureValue.append(list(ether.values())[2])
+                                    print(f'The value of ETH is {str(futureValue)}')
+                                    if futureValue[0] < currentValue[0]:
+                                        account_conn = sqlite3.connect('Registered Users.db')
+                                        account_cur = account_conn.cursor()
+                                        select_query = 'SELECT * FROM Registered_Traders'
+                                        account_cur.execute(select_query)
+                                        records = account_cur.fetchone()
+                                        for x in records:
+                                            if type(x) == float:
+                                                wallet = x  # retrieving wallet from database
+                                        moneyWon = (percentageETH / 100) * stake
+                                        currentBalance = float(wallet) + moneyWon
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name= "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 1000)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/ETH',
+                                                         'Ξ' + str(stake), 'WON'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You have won the trade. Your current balance is now {currentBalance}')
+                                    elif futureValue[0] >= currentValue[0]:
+                                        moneyWon = (percentageETH / 100) * stake
+                                        currentBalance = float(wallet) - float(moneyWon)
+                                        account_conn = sqlite3.connect('Registered Users.db')
+                                        account_cur = account_conn.cursor()
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name= "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 1000)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/ETH',
+                                                         'Ξ' + str(stake), 'FALL'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You lost the trade. Your current balance is now {currentBalance}')
+                                else:
+                                    print('Insufficient wallet balance! In order to stake, have wallet balance'
+                                          'greater than stake amount')
+                    elif option == 3:
+                        try:
+                            prediction = input('Would you it Rise or Fall (choose Rise or Fall): ').title()
+                            if len(prediction) == 0:
+                                print('Expected value but got none')
+                                continue
+                            duration = int(input(f'Specify the time it would {prediction.lower()}: ').strip())
+                            stake = int(input('How much are you staking: '))
+                        except ValueError:
+                            print('Invalid Input!')
+                            break
+                        except TypeError:
+                            print('Invalid datatype!')
+                        except NameError:
+                            print('Name error')
+                            continue
+                        if duration not in timeAllowed:
+                            print('Enter valid time; 15,30,60,120seconds...')
+                            continue
+                        else:
+                            url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                            response = requests.get(url)
+                            convertedResponse = response.json()
+                            bitcoin = (convertedResponse['rates']['btc'])
+                            ether = (convertedResponse['rates']['eth'])
+                            euro = (convertedResponse['rates']['eur'])
+                            usd = (convertedResponse['rates']['usd'])
+                            #   retrieving wallet from db
+                            account_conn = sqlite3.connect('Registered Users.db')
+                            account_cur = account_conn.cursor()
+                            select_query = f'SELECT WalletBalance FROM Registered_Traders WHERE Name = "{name}"'
+                            account_cur.execute(select_query)
+                            wallet = account_cur.fetchone()
+                            wallet = wallet[0]
+                            if prediction == 'Rise':
+                                if wallet > stake and wallet > 200:
+                                    currentValue = []
+                                    currentValue.append(list(euro.values())[2])
+                                    print(f'The live price of EUR is {str(currentValue)}')
+                                    print('Loading...')
+                                    time.sleep(duration)
+                                    url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                                    response = requests.get(url)
+                                    convertedResponse = response.json()
+                                    bitcoin = (convertedResponse['rates']['btc'])
+                                    ether = (convertedResponse['rates']['eth'])
+                                    euro = (convertedResponse['rates']['eur'])
+                                    usd = (convertedResponse['rates']['usd'])
+                                    futureValue = []
+                                    futureValue.append(list(euro.values())[2])
+                                    print(f'The value of EUR is {str(futureValue)}')
+                                    if futureValue[0] > currentValue[0]:
+                                        moneyWon = (percentageEUR / 100) * stake
+                                        currentBalance = float(wallet) + moneyWon
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name= "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 1000)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/EUR',
+                                                         '€' + str(stake), 'WON'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You have won the trade. Your current balance is now {currentBalance}')
+                                    elif futureValue[0] <= currentValue[0]:
+                                        moneyWon = (percentageEUR / 100) * stake
+                                        currentBalance = float(wallet) - float(moneyWon)
+                                        account_conn = sqlite3.connect('Registered Users.db')
+                                        account_cur = account_conn.cursor()
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name= "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 1000)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/EUR',
+                                                         '€' + str(stake), 'LOST'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You lost the trade. Your current balance is now {currentBalance}')
+                                    else:
+                                        print('This is impossible!')
+                                else:
+                                    print('Insufficient wallet balance! In order to stake, have wallet balance'
+                                           'greater than stake amount')
+                            elif prediction == 'Fall':
+                                if wallet > stake and wallet > 200:
+                                    currentValue = []
+                                    currentValue.append(list(euro.values())[2])
+                                    print(f'The live price of EUR is {str(currentValue)}')
+                                    print('Loading...')
+                                    time.sleep(duration)
+                                    url = 'https://api.coingecko.com/api/v3/exchange_rates'
+                                    response = requests.get(url)
+                                    convertedResponse = response.json()
+                                    bitcoin = (convertedResponse['rates']['btc'])
+                                    ether = (convertedResponse['rates']['eth'])
+                                    euro = (convertedResponse['rates']['eur'])
+                                    usd = (convertedResponse['rates']['usd'])
+                                    futureValue = []
+                                    futureValue.append(list(euro.values())[2])
+                                    print(f'The value of EUR is {str(futureValue)}')
+                                    if futureValue[0] < currentValue[0]:
+                                        moneyWon = (percentageEUR / 100) * stake
+                                        currentBalance = float(wallet) + moneyWon
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name= "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 1000)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/EUR',
+                                                         '€' + str(stake), 'WON'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You have won the trade. Your current balance is now {currentBalance}')
+                                    elif futureValue[0] >= currentValue[0]:
+                                        moneyWon = (percentageEUR / 100) * stake
+                                        currentBalance = float(wallet) - float(moneyWon)
+                                        account_conn = sqlite3.connect('Registered Users.db')
+                                        account_cur = account_conn.cursor()
+                                        account_cur.execute(f'''UPDATE Registered_Traders 
+                                                            SET WalletBalance = {currentBalance} WHERE Name= "{name}"''')
+                                        account_conn.commit()
+                                        account_conn.close()
+                                        id = randint(100, 100)
+                                        traders_conn = sqlite3.connect('Table Information.db')
+                                        traders_cur = traders_conn.cursor()
+                                        traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+                                                        (id, name, 'BTC/EUR',
+                                                         '€' + str(stake), 'LOST'))
+                                        traders_conn.commit()
+                                        traders_conn.close()
+                                        print(f'You lost the trade. Your current balance is now {currentBalance}')
+                                else:
+                                    print('Insufficient wallet balance! In order to stake, have wallet balance'
+                                          'greater than stake amount''')
+                    else:
+                        print('Invalid input.. Try again!')
+    elif option == 3:
+        print('Logging out now..')
+        time.sleep(2)
+        break
+    else:
+        print('Account does not exist.')
+        continue
+print('Insert a valid option!')

@@ -1,0 +1,28 @@
+import sqlite3
+
+account_conn = sqlite3.connect('Registered Users.db')
+account_cur = account_conn.cursor()
+account_cur.execute('DROP TABLE IF EXISTS Registered_Traders')
+account_cur.execute('CREATE TABLE Registered_Traders(Name TEXT PRIMARY KEY, Email TEXT, Phone TEXT,'
+                    ' WalletBalance FLOAT, Password TEXT)')
+account_conn.commit()
+account_conn.close()
+
+traders_conn = sqlite3.connect('Table Information.db')
+traders_cur = traders_conn.cursor()
+traders_cur.execute('DROP TABLE IF EXISTS Trading_Details')
+traders_cur.execute('CREATE TABLE Trading_Details (TransactionID INTEGER PRIMARY KEY,'
+                    'Name TEXT FOREIGNKEY REFERENCES Registered_Traders(Name), TradePair TEXT,'
+                    'Stake INTEGER, TradeStatus TEXT)')
+traders_conn.commit()
+traders_conn.close()
+
+# def traderInfo():
+#     id = randint(100, 500)
+#     traders_conn = sqlite3.connect('Table Information.db')
+#     traders_cur = traders_conn.cursor()
+#     traders_cur.execute('INSERT INTO Trading_Details VALUES (?,?,?,?,?)',
+#                         (id, name, 'BTC/USD',
+#                          '$' + str(stake), 'LOST'))
+#     traders_conn.commit()
+#     traders_conn.close()
